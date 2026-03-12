@@ -4,8 +4,8 @@ import os
 
 from playwright.async_api import async_playwright
 from xhs import XhsClient
-
-from conf import BASE_DIR, LOCAL_CHROME_HEADLESS
+from playwright_stealth.stealth import Stealth
+from conf import BASE_DIR, LOCAL_CHROME_HEADLESS,CHROME_DEFAULT_ARGS,LOCAL_CHROME_PATH
 from utils.base_social_media import set_init_script
 from utils.log import tencent_logger, kuaishou_logger, douyin_logger
 from pathlib import Path
@@ -14,11 +14,17 @@ from uploader.xhs_uploader.main import sign_local
 
 async def cookie_auth_douyin(account_file):
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=LOCAL_CHROME_HEADLESS)
+        browser = await playwright.chromium.launch(
+            headless=LOCAL_CHROME_HEADLESS,
+            args=CHROME_DEFAULT_ARGS,
+            executable_path=LOCAL_CHROME_PATH
+        )
         context = await browser.new_context(storage_state=account_file)
         context = await set_init_script(context)
         # 创建一个新的页面
         page = await context.new_page()
+        stealth = Stealth()
+        await stealth.apply_stealth_async(page)
         # 访问指定的 URL
         await page.goto("https://creator.douyin.com/creator-micro/content/upload")
         try:

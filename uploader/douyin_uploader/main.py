@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
-
+from typing import List,Optional
+from playwright_stealth.stealth import Stealth
 from playwright.async_api import Playwright, async_playwright, Page
 import os
 import asyncio
@@ -9,14 +10,43 @@ from conf import LOCAL_CHROME_PATH, LOCAL_CHROME_HEADLESS
 from utils.base_social_media import set_init_script
 from utils.log import douyin_logger
 
-
+CHROME_DEFAULT_ARGS: List[str] = [
+    '--disable-blink-features=AutomationControlled',
+    '--disable-dev-shm-usage',
+    '--no-sandbox',
+    '--disable-web-security',
+    '--disable-features=IsolateOrigins,site-per-process,BlockInsecurePrivateNetworkRequests,OutOfBlinkCors',
+    '--disable-site-isolation-trials',
+    '--lang=zh-CN'
+]
 async def cookie_auth(account_file):
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=LOCAL_CHROME_HEADLESS)
+        # options = {
+        #     'headless': LOCAL_CHROME_HEADLESS,
+        #     'args': [
+        #         '--disable-blink-features=AutomationControlled',
+        #         '--disable-dev-shm-usage',
+        #         '--no-sandbox',
+        #         '--disable-web-security',
+        #         '--disable-features=IsolateOrigins,site-per-process',
+        #         '--disable-site-isolation-trials',
+        #         '--disable-features=BlockInsecurePrivateNetworkRequests',
+        #         '--disable-features=OutOfBlinkCors',
+        #         '--lang=zh-CN'
+        #     ]
+        # }
+        browser = await playwright.chromium.launch(
+            headless=LOCAL_CHROME_HEADLESS,
+            executable_path=LOCAL_CHROME_PATH,
+            args=CHROME_DEFAULT_ARGS
+        )
         context = await browser.new_context(storage_state=account_file)
         context = await set_init_script(context)
         # 创建一个新的页面
         page = await context.new_page()
+        # 隐身
+        stealth = Stealth()
+        await stealth.apply_stealth_async(page)
         # 访问指定的 URL
         await page.goto("https://creator.douyin.com/creator-micro/content/upload")
         try:
@@ -47,16 +77,19 @@ async def douyin_setup(account_file, handle=False):
 
 async def douyin_cookie_gen(account_file):
     async with async_playwright() as playwright:
-        options = {
-            'headless': LOCAL_CHROME_HEADLESS
-        }
         # Make sure to run headed.
-        browser = await playwright.chromium.launch(**options)
+        browser = await playwright.chromium.launch(
+            headless=LOCAL_CHROME_HEADLESS,
+            executable_path=LOCAL_CHROME_PATH,
+            args=CHROME_DEFAULT_ARGS
+        )
         # Setup context however you like.
         context = await browser.new_context()  # Pass any options
         context = await set_init_script(context)
         # Pause the page, and start recording manually.
         page = await context.new_page()
+        stealth = Stealth()
+        await stealth.apply_stealth_async(page)
         await page.goto("https://creator.douyin.com/")
         await page.pause()
         # 点击调试器的继续，保存cookie
@@ -64,7 +97,8 @@ async def douyin_cookie_gen(account_file):
 
 
 class DouYinVideo(object):
-    def __init__(self, title, file_path, tags, publish_date: datetime, account_file, thumbnail_path=None, productLink='', productTitle=''):
+    def __init__(self, title, file_path, tags, publish_date: datetime, account_file, thumbnail_path=None,
+                 productLink='', productTitle=''):
         self.title = title  # 视频标题
         self.file_path = file_path
         self.tags = tags
@@ -100,7 +134,8 @@ class DouYinVideo(object):
     async def upload(self, playwright: Playwright) -> None:
         # 使用 Chromium 浏览器启动一个浏览器实例
         if self.local_executable_path:
-            browser = await playwright.chromium.launch(headless=self.headless, executable_path=self.local_executable_path)
+            browser = await playwright.chromium.launch(headless=self.headless,
+                                                       executable_path=self.local_executable_path)
         else:
             browser = await playwright.chromium.launch(headless=self.headless)
         # 创建一个浏览器上下文，使用指定的 cookie 文件
@@ -143,7 +178,8 @@ class DouYinVideo(object):
         # 这里为了避免页面变化，故使用相对位置定位：作品标题父级右侧第一个元素的input子元素
         await asyncio.sleep(1)
         douyin_logger.info(f'  [-] 正在填充标题和话题...')
-        title_container = page.get_by_text('作品标题').locator("..").locator("xpath=following-sibling::div[1]").locator("input")
+        title_container = page.get_by_text('作品标题').locator("..").locator("xpath=following-sibling::div[1]").locator(
+            "input")
         if await title_container.count():
             await title_container.fill(self.title[:30])
         else:
@@ -182,13 +218,12 @@ class DouYinVideo(object):
             douyin_logger.info(f'  [-] 正在设置商品链接...')
             await self.set_product_link(page, self.productLink, self.productTitle)
             douyin_logger.info(f'  [+] 完成设置商品链接...')
-        
-        #上传视频封面
+
+        # 上传视频封面
         await self.set_thumbnail(page, self.thumbnail_path)
 
         # 更换可见元素
         await self.set_location(page, "")
-
 
         # 頭條/西瓜
         third_part_element = '[class^="info"] > [class^="first-part"] div div.semi-switch'
@@ -270,7 +305,8 @@ class DouYinVideo(object):
             await page.click('text="设置竖封面"')
             await page.wait_for_timeout(2000)  # 等待2秒
             # 定位到上传区域并点击
-            await page.locator("div[class^='semi-upload upload'] >> input.semi-upload-hidden-input").set_input_files(thumbnail_path)
+            await page.locator("div[class^='semi-upload upload'] >> input.semi-upload-hidden-input").set_input_files(
+                thumbnail_path)
             await page.wait_for_timeout(2000)  # 等待2秒
             await page.locator("div#tooltip-container button:visible:has-text('完成')").click()
             # finish_confirm_element = page.locator("div[class^='confirmBtn'] >> div:has-text('完成')")
@@ -280,7 +316,6 @@ class DouYinVideo(object):
             douyin_logger.info('  [+] 视频封面设置完成！')
             # 等待封面设置对话框关闭
             await page.wait_for_selector("div.extractFooter", state='detached')
-            
 
     async def set_location(self, page: Page, location: str = ""):
         if not location:
@@ -313,7 +348,7 @@ class DouYinVideo(object):
         if 'disabled' not in await finish_button.get_attribute('class'):
             await finish_button.click()
             douyin_logger.debug("[+] 成功点击'完成编辑'按钮")
-            
+
             # 等待对话框关闭
             await page.wait_for_selector('.semi-modal-content', state='hidden', timeout=5000)
             return True
@@ -327,17 +362,18 @@ class DouYinVideo(object):
                 # 点击右上角的关闭按钮
                 close_button = page.locator('.semi-modal-close')
                 await close_button.click()
-            
+
             await page.wait_for_selector('.semi-modal-content', state='hidden', timeout=5000)
             return False
-        
+
     async def set_product_link(self, page: Page, product_link: str, product_title: str):
         """设置商品链接功能"""
         await page.wait_for_timeout(2000)  # 等待2秒
         try:
             # 定位"添加标签"文本，然后向上导航到容器，再找到下拉框
             await page.wait_for_selector('text=添加标签', timeout=10000)
-            dropdown = page.get_by_text('添加标签').locator("..").locator("..").locator("..").locator(".semi-select").first
+            dropdown = page.get_by_text('添加标签').locator("..").locator("..").locator("..").locator(
+                ".semi-select").first
             if not await dropdown.count():
                 douyin_logger.error("[-] 未找到标签下拉框")
                 return False
@@ -348,7 +384,7 @@ class DouYinVideo(object):
             ## 选择"购物车"选项
             await page.locator('[role="option"]:has-text("购物车")').click()
             douyin_logger.debug("[+] 成功选择'购物车'")
-            
+
             # 输入商品链接
             ## 等待商品链接输入框出现
             await page.wait_for_selector('input[placeholder="粘贴商品链接"]', timeout=5000)
@@ -356,7 +392,7 @@ class DouYinVideo(object):
             input_field = page.locator('input[placeholder="粘贴商品链接"]')
             await input_field.fill(product_link)
             douyin_logger.debug(f"[+] 已输入商品链接: {product_link}")
-            
+
             # 点击"添加链接"按钮
             add_button = page.locator('span:has-text("添加链接")')
             ## 检查按钮是否可用（没有disable类）
@@ -379,7 +415,7 @@ class DouYinVideo(object):
             # 填写商品短标题
             if not await self.handle_product_dialog(page, product_title):
                 return False
-            
+
             # 等待链接添加完成
             douyin_logger.debug("[+] 成功设置商品链接")
             return True
@@ -390,5 +426,3 @@ class DouYinVideo(object):
     async def main(self):
         async with async_playwright() as playwright:
             await self.upload(playwright)
-
-

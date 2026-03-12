@@ -1,6 +1,6 @@
 import asyncio
 import sqlite3
-
+from playwright_stealth.stealth import Stealth
 from playwright.async_api import async_playwright
 
 from myUtils.auth import check_cookie
@@ -9,15 +9,19 @@ import uuid
 from pathlib import Path
 from conf import BASE_DIR, LOCAL_CHROME_HEADLESS, LOCAL_CHROME_PATH
 
+
 # 统一获取浏览器启动配置（防风控+引入本地浏览器）
 def get_browser_options():
     options = {
         'headless': LOCAL_CHROME_HEADLESS,
         'args': [
-            '--disable-blink-features=AutomationControlled',  # 核心防爬屏蔽：去掉 window.navigator.webdriver 标签
-            '--lang=zh-CN',
-            '--disable-infobars',
-            '--start-maximized'
+            '--disable-blink-features=AutomationControlled',
+            '--disable-dev-shm-usage',
+            '--no-sandbox',
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process,BlockInsecurePrivateNetworkRequests,OutOfBlinkCors',
+            '--disable-site-isolation-trials',
+            '--lang=zh-CN'
         ]
     }
     # 如果用户在 conf.py 里配置了本地 Chrome，就用本地的，这样成功率极高
@@ -26,13 +30,16 @@ def get_browser_options():
 
     return options
 
+
 # 抖音登录
-async def douyin_cookie_gen(id,status_queue):
+async def douyin_cookie_gen(id, status_queue):
     url_changed_event = asyncio.Event()
+
     async def on_url_change():
         # 检查是否是主框架的变化
         if page.url != original_url:
             url_changed_event.set()
+
     async with async_playwright() as playwright:
         options = get_browser_options()
         # Make sure to run headed.
@@ -42,6 +49,8 @@ async def douyin_cookie_gen(id,status_queue):
         context = await set_init_script(context)
         # Pause the page, and start recording manually.
         page = await context.new_page()
+        stealth = Stealth()
+        await stealth.apply_stealth_async(page)
         await page.goto("https://creator.douyin.com/")
         original_url = page.url
         img_locator = page.get_by_role("img", name="二维码")
@@ -91,8 +100,9 @@ async def douyin_cookie_gen(id,status_queue):
 
 
 # 视频号登录
-async def get_tencent_cookie(id,status_queue):
+async def get_tencent_cookie(id, status_queue):
     url_changed_event = asyncio.Event()
+
     async def on_url_change():
         # 检查是否是主框架的变化
         if page.url != original_url:
@@ -147,7 +157,7 @@ async def get_tencent_cookie(id,status_queue):
         cookies_dir = Path(BASE_DIR / "cookiesFile")
         cookies_dir.mkdir(exist_ok=True)
         await context.storage_state(path=cookies_dir / f"{uuid_v1}.json")
-        result = await check_cookie(2,f"{uuid_v1}.json")
+        result = await check_cookie(2, f"{uuid_v1}.json")
         if not result:
             status_queue.put("500")
             await page.close()
@@ -168,13 +178,16 @@ async def get_tencent_cookie(id,status_queue):
             print("✅ 用户状态已记录")
         status_queue.put("200")
 
+
 # 快手登录
-async def get_ks_cookie(id,status_queue):
+async def get_ks_cookie(id, status_queue):
     url_changed_event = asyncio.Event()
+
     async def on_url_change():
         # 检查是否是主框架的变化
         if page.url != original_url:
             url_changed_event.set()
+
     async with async_playwright() as playwright:
         options = {
             'args': [
@@ -242,8 +255,9 @@ async def get_ks_cookie(id,status_queue):
             print("✅ 用户状态已记录")
         status_queue.put("200")
 
+
 # 小红书登录
-async def xiaohongshu_cookie_gen(id,status_queue):
+async def xiaohongshu_cookie_gen(id, status_queue):
     url_changed_event = asyncio.Event()
 
     async def on_url_change():
