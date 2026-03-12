@@ -27,6 +27,5 @@ if __name__ == '__main__':
         if thumbnail_path.exists():
             app = DouYinVideo(title, file, tags, publish_datetimes[index], account_file, thumbnail_path=thumbnail_path)
         else:
-            pass
-        app = DouYinVideo(title, file, tags, publish_datetimes[index], account_file)
+            app = DouYinVideo(title, file, tags, publish_datetimes[index], account_file)
         asyncio.run(app.main(), debug=False)

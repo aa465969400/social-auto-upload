@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
-from typing import List,Optional
+from typing import List, Optional
 from playwright_stealth.stealth import Stealth
 from playwright.async_api import Playwright, async_playwright, Page
 import os
@@ -19,6 +19,8 @@ CHROME_DEFAULT_ARGS: List[str] = [
     '--disable-site-isolation-trials',
     '--lang=zh-CN'
 ]
+
+
 async def cookie_auth(account_file):
     async with async_playwright() as playwright:
         # options = {
@@ -298,11 +300,23 @@ class DouYinVideo(object):
         return False
 
     async def set_thumbnail(self, page: Page, thumbnail_path: str):
+        from openai import OpenAI
+        import os
+
+        client = OpenAI(
+            # 如果没有配置环境变量，请用阿里云百炼API Key替换：api_key="sk-xxx"
+            api_key=os.getenv("API_KEY"),
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        )
+
         if thumbnail_path:
             douyin_logger.info('  [-] 正在设置视频封面...')
-            await page.click('text="选择封面"')
-            await page.wait_for_selector("div.dy-creator-content-modal")
-            await page.click('text="设置竖封面"')
+            await page.get_by_text("选择封面").first.click()
+            await page.wait_for_timeout(2000)
+            await page.wait_for_selector("div.filter-k_CjvJ")
+            await page.wait_for_timeout(2000)
+            await page.locator(".dialog-footer .semi-button-content", has_text="完成").click()
+            # await page.get_by_text("设置竖封面").click()
             await page.wait_for_timeout(2000)  # 等待2秒
             # 定位到上传区域并点击
             await page.locator("div[class^='semi-upload upload'] >> input.semi-upload-hidden-input").set_input_files(
