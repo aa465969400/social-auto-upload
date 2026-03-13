@@ -51,8 +51,10 @@ async def main():
             raise FileNotFoundError(f'Could not find the video file at {args["video_file"]}')
         if args.publish_type == 1 and not args.schedule:
             parser.error("The schedule must must be specified for scheduled publishing.")
-
+    # 区分不同用户cookie
     account_file = Path(BASE_DIR / "cookies" / f"{args.platform}_{args.account_name}.json")
+    # 写死用户cookie先
+    # account_file = Path(BASE_DIR / "cookies" / "account.json")
     account_file.parent.mkdir(exist_ok=True)
 
     # 根据 action 处理不同的逻辑

@@ -146,6 +146,8 @@ class DouYinVideo(object):
 
         # 创建一个新的页面
         page = await context.new_page()
+        stealth = Stealth()
+        await stealth.apply_stealth_async(page)
         # 访问指定的 URL
         await page.goto("https://creator.douyin.com/creator-micro/content/upload")
         douyin_logger.info(f'[+]正在上传-------{self.title}.mp4')
@@ -300,15 +302,6 @@ class DouYinVideo(object):
         return False
 
     async def set_thumbnail(self, page: Page, thumbnail_path: str):
-        from openai import OpenAI
-        import os
-
-        client = OpenAI(
-            # 如果没有配置环境变量，请用阿里云百炼API Key替换：api_key="sk-xxx"
-            api_key=os.getenv("API_KEY"),
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        )
-
         if thumbnail_path:
             douyin_logger.info('  [-] 正在设置视频封面...')
             await page.get_by_text("选择封面").first.click()
