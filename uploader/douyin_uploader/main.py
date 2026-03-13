@@ -315,14 +315,14 @@ class DouYinVideo(object):
             await page.wait_for_timeout(2000)
             await page.wait_for_selector("div.filter-k_CjvJ")
             await page.wait_for_timeout(2000)
-            await page.locator(".dialog-footer .semi-button-content", has_text="完成").click()
-            # await page.get_by_text("设置竖封面").click()
+            # await page.locator(".dialog-footer .semi-button-content", has_text="完成").click()
+            await page.get_by_role("button",name="设置竖封面").click()
             await page.wait_for_timeout(2000)  # 等待2秒
             # 定位到上传区域并点击
             await page.locator("div[class^='semi-upload upload'] >> input.semi-upload-hidden-input").set_input_files(
                 thumbnail_path)
             await page.wait_for_timeout(2000)  # 等待2秒
-            await page.locator("div#tooltip-container button:visible:has-text('完成')").click()
+            await page.get_by_role("button",name="完成").click()
             # finish_confirm_element = page.locator("div[class^='confirmBtn'] >> div:has-text('完成')")
             # if await finish_confirm_element.count():
             #     await finish_confirm_element.click()
