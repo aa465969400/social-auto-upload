@@ -26,7 +26,8 @@ def parse_schedule(schedule_raw):
 async def main():
     # 主解析器
     parser = argparse.ArgumentParser(description="Upload video to multiple social-media.")
-    parser.add_argument("platform", metavar='platform', choices=get_supported_social_media(), help="Choose social-media platform: douyin tencent tiktok kuaishou")
+    parser.add_argument("platform", metavar='platform', choices=get_supported_social_media(),
+                        help="Choose social-media platform: douyin tencent tiktok kuaishou")
 
     parser.add_argument("account_name", type=str, help="Account name for the platform: xiaoA")
     subparsers = parser.add_subparsers(dest="action", metavar='action', help="Choose action", required=True)
@@ -39,9 +40,10 @@ async def main():
             continue
         elif action == 'upload':
             action_parser.add_argument("video_file", help="Path to the Video file")
+            action_parser.add_argument("thumbnail_path", type=str, help="path to the thumbnail")
             action_parser.add_argument("-pt", "--publish_type", type=int, choices=[0, 1],
                                        help="0 for immediate, 1 for scheduled", default=0)
-            action_parser.add_argument('-t', '--schedule', help='Schedule UTC time in %Y-%m-%d %H:%M format')
+            action_parser.add_argument('-t', '--schedule', help='Schedule UTC time in %%Y-%%m-%%d %%H:%%M format')
 
     # 解析命令行参数
     args = parser.parse_args()
@@ -49,6 +51,8 @@ async def main():
     if args.action == 'upload':
         if not exists(args.video_file):
             raise FileNotFoundError(f'Could not find the video file at {args["video_file"]}')
+        elif not exists(args.thumbnail_path):
+            raise FileNotFoundError(f'Could not find the image file at {args["thumbnail_path"]}')
         if args.publish_type == 1 and not args.schedule:
             parser.error("The schedule must must be specified for scheduled publishing.")
     # 区分不同用户cookie
@@ -71,7 +75,7 @@ async def main():
     elif args.action == 'upload':
         title, tags = get_title_and_hashtags(args.video_file)
         video_file = args.video_file
-
+        thumbnail_path = args.thumbnail_path
         if args.publish_type == 0:
             print("Uploading immediately...")
             publish_date = 0
@@ -81,7 +85,7 @@ async def main():
 
         if args.platform == SOCIAL_MEDIA_DOUYIN:
             await douyin_setup(account_file, handle=False)
-            app = DouYinVideo(title, video_file, tags, publish_date, account_file)
+            app = DouYinVideo(title, video_file, tags, publish_date, account_file, thumbnail_path)
         elif args.platform == SOCIAL_MEDIA_TIKTOK:
             await tiktok_setup(account_file, handle=True)
             app = TiktokVideo(title, video_file, tags, publish_date, account_file)

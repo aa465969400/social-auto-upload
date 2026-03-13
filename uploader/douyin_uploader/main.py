@@ -5,7 +5,7 @@ from playwright_stealth.stealth import Stealth
 from playwright.async_api import Playwright, async_playwright, Page
 import os
 import asyncio
-
+import re
 from conf import LOCAL_CHROME_PATH, LOCAL_CHROME_HEADLESS
 from utils.base_social_media import set_init_script
 from utils.log import douyin_logger
@@ -99,7 +99,7 @@ async def douyin_cookie_gen(account_file):
 
 
 class DouYinVideo(object):
-    def __init__(self, title, file_path, tags, publish_date: datetime, account_file, thumbnail_path=None,
+    def __init__(self, title, file_path, tags, publish_date: datetime, account_file, thumbnail_path,
                  productLink='', productTitle=''):
         self.title = title  # 视频标题
         self.file_path = file_path
@@ -137,7 +137,9 @@ class DouYinVideo(object):
         # 使用 Chromium 浏览器启动一个浏览器实例
         if self.local_executable_path:
             browser = await playwright.chromium.launch(headless=self.headless,
-                                                       executable_path=self.local_executable_path)
+                                                       executable_path=self.local_executable_path,
+                                                       channel='chrome',
+                                                       args=CHROME_DEFAULT_ARGS)
         else:
             browser = await playwright.chromium.launch(headless=self.headless)
         # 创建一个浏览器上下文，使用指定的 cookie 文件
@@ -223,7 +225,7 @@ class DouYinVideo(object):
             await self.set_product_link(page, self.productLink, self.productTitle)
             douyin_logger.info(f'  [+] 完成设置商品链接...')
 
-        # 上传视频封面
+        # 上传视频封面（临时注释，解决找不到按钮问题）
         await self.set_thumbnail(page, self.thumbnail_path)
 
         # 更换可见元素
@@ -269,37 +271,9 @@ class DouYinVideo(object):
         """
         处理必须设置封面的情况，点击推荐封面的第一个
         """
-        # 1. 判断是否出现 "请设置封面后再发布" 的提示
-        # 必须确保提示是可见的 (is_visible)，因为 DOM 中可能存在隐藏的历史提示
-        if await page.get_by_text("请设置封面后再发布").first.is_visible():
-            print("  [-] 检测到需要设置封面提示...")
-
-            # 2. 定位“智能推荐封面”区域下的第一个封面
-            # 使用 class^= 前缀匹配，避免 hash 变化导致失效
-            recommend_cover = page.locator('[class^="recommendCover-"]').first
-
-            if await recommend_cover.count():
-                print("  [-] 正在选择第一个推荐封面...")
-                try:
-                    await recommend_cover.click()
-                    await asyncio.sleep(1)  # 等待选中生效
-
-                    # 3. 处理可能的确认弹窗 "是否确认应用此封面？"
-                    # 并不一定每次都会出现，健壮性判断：如果出现弹窗，则点击确定
-                    confirm_text = "是否确认应用此封面？"
-                    if await page.get_by_text(confirm_text).first.is_visible():
-                        print(f"  [-] 检测到确认弹窗: {confirm_text}")
-                        # 直接点击“确定”按钮，不依赖脆弱的 CSS 类名
-                        await page.get_by_role("button", name="确定").click()
-                        print("  [-] 已点击确认应用封面")
-                        await asyncio.sleep(1)
-
-                    print("  [-] 已完成封面选择流程")
-                    return True
-                except Exception as e:
-                    print(f"  [-] 选择封面失败: {e}")
-
-        return False
+        # 临时跳过封面检测，避免页面崩溃
+        print("  [-] 跳过自动封面设置，上传后可手动修改")
+        return True
 
     async def set_thumbnail(self, page: Page, thumbnail_path: str):
         if thumbnail_path:
@@ -309,13 +283,13 @@ class DouYinVideo(object):
             await page.wait_for_selector("div.filter-k_CjvJ")
             await page.wait_for_timeout(2000)
             # await page.locator(".dialog-footer .semi-button-content", has_text="完成").click()
-            await page.get_by_role("button",name="设置竖封面").click()
+            await page.get_by_role("button", name=re.compile(r"^设置.*封面$")).click()
             await page.wait_for_timeout(2000)  # 等待2秒
             # 定位到上传区域并点击
             await page.locator("div[class^='semi-upload upload'] >> input.semi-upload-hidden-input").set_input_files(
                 thumbnail_path)
             await page.wait_for_timeout(2000)  # 等待2秒
-            await page.get_by_role("button",name="完成").click()
+            await page.get_by_role("button", name="完成").click()
             # finish_confirm_element = page.locator("div[class^='confirmBtn'] >> div:has-text('完成')")
             # if await finish_confirm_element.count():
             #     await finish_confirm_element.click()
